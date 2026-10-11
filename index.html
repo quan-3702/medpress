@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MedPress – Medication Chart &amp; List</title>
+  <meta name="description" content="Print a large-print weekly medicine chart with tick boxes, a medicine list for doctor visits and a wallet card. Private and offline.">
+  <meta name="theme-color" content="#0e7490">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <style id="pageRule"></style>
+  <style>.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.person-row{display:flex;gap:6px}.person-row select{flex:1}</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="icon-192.png" alt="" width="30" height="30"><span>MedPress</span></div>
+    <span class="tree-title"></span>
+    <div class="top-btns">
+      <button id="printBtn" class="tb">🖨 Print</button>
+      <button id="moreBtn" class="tb">☰ More</button>
+      <button id="proBtn" class="pro-btn" hidden>★ Get Pro</button>
+    </div>
+    <div id="menu" class="menu" hidden>
+      <button id="exBtn">Fill in an example</button>
+      <button id="resetBtn" class="danger">Delete everything…</button>
+      <a href="help.html" target="_blank" rel="noopener">❓ How to use MedPress</a>
+      <a href="mailto:thequan03072002@gmail.com?subject=MedPress%20feedback">✉ Feedback &amp; support</a>
+      <a href="https://apps.microsoft.com/detail/9PJZFJ139JC2" target="_blank" rel="noopener">More apps: AddressPress envelope printer</a>
+      <a href="https://apps.microsoft.com/detail/9MWSF3JMP1GJ" target="_blank" rel="noopener">More apps: PrintCal photo calendar maker</a>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="left">
+      <h2>1 · Whose medicines</h2>
+      <div class="person-row"><select id="who" aria-label="Person"></select><button id="addPerson" class="ghost" title="Add another person">+ Person</button></div>
+      <div class="two">
+        <label class="field">Name<input id="name" type="text" maxlength="60"></label>
+        <label class="field">Date of birth<input id="dob" type="text" maxlength="20" placeholder="optional"></label>
+      </div>
+      <label class="field">Allergies<input id="allergies" type="text" maxlength="100" placeholder="e.g. Penicillin – or leave empty"></label>
+
+      <h2>2 · Medicines</h2>
+      <button id="addMed" class="primary">+ Add a medicine</button>
+      <ul id="meds" class="contacts"></ul>
+
+      <h2>3 · What to print</h2>
+      <div class="seg3" id="modes">
+        <button data-m="week">Weekly chart</button>
+        <button data-m="list">Medicine list</button>
+        <button data-m="card">Wallet card</button>
+      </div>
+      <div id="weekF">
+        <div class="two">
+          <label class="field">Week starting<input id="start" type="date"></label>
+          <label class="field">Weeks<select id="weeks"><option value="1">1 week</option><option value="2">2 weeks</option><option value="3">3 weeks</option><option value="4">4 weeks</option></select></label>
+        </div>
+        <button id="thisWeek" class="ghost" style="margin-top:6px">This week</button>
+      </div>
+      <div class="two">
+        <label class="field">Paper<select id="paper"><option value="letter">US Letter</option><option value="a4">A4</option></select></label>
+        <label class="check" style="align-self:end"><input id="large" type="checkbox"> Large print</label>
+      </div>
+
+      <h2>4 · Contacts</h2>
+      <div class="two">
+        <label class="field">Doctor<input id="doctor" type="text" maxlength="50"></label>
+        <label class="field">Phone<input id="doctorPhone" type="text" maxlength="30"></label>
+        <label class="field">Pharmacy<input id="pharmacy" type="text" maxlength="50"></label>
+        <label class="field">Phone<input id="pharmacyPhone" type="text" maxlength="30"></label>
+        <label class="field">Emergency contact<input id="emergency" type="text" maxlength="50"></label>
+        <label class="field">Phone<input id="emergencyPhone" type="text" maxlength="30"></label>
+      </div>
+      <button id="delPerson" class="ghost danger" style="margin-top:8px">Delete this person…</button>
+      <p class="hint">MedPress helps you write down and print your own medicines. It does not give medical advice. Always follow your doctor or pharmacist.</p>
+    </aside>
+
+    <section class="stage">
+      <div id="pager" class="pager"></div>
+      <div class="preview">
+        <button id="prev" class="nav" title="Previous page">‹</button>
+        <div id="page" style="height:100%;display:flex;align-items:center;justify-content:center;min-width:0;flex:1"></div>
+        <button id="next" class="nav" title="Next page">›</button>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="medDialog" class="dlg">
+    <h2 id="mTitle">Add a medicine</h2>
+    <label class="field">Name of the medicine<input id="mName" type="text" maxlength="60" placeholder="e.g. Metformin"></label>
+    <label class="field">How much<input id="mDose" type="text" maxlength="60" placeholder="e.g. 500 mg – 1 tablet"></label>
+    <p class="hint" style="margin-top:10px">When do you take it?</p>
+    <div class="checks">
+      <label class="check"><input id="t_m" type="checkbox"> Morning</label>
+      <label class="check"><input id="t_n" type="checkbox"> Midday</label>
+      <label class="check"><input id="t_e" type="checkbox"> Evening</label>
+      <label class="check"><input id="t_b" type="checkbox"> Bedtime</label>
+      <label class="check" style="grid-column:1/-1"><input id="t_p" type="checkbox"> Only when needed</label>
+    </div>
+    <label class="field">What it is for<input id="mPurpose" type="text" maxlength="60" placeholder="optional, e.g. Blood pressure"></label>
+    <label class="field">Notes<input id="mNotes" type="text" maxlength="80" placeholder="optional, e.g. With food"></label>
+    <label class="field">What it looks like<input id="mLook" type="text" maxlength="40" placeholder="optional, e.g. small white round"></label>
+    <div class="row-btns">
+      <button id="mSave" class="primary">Save</button>
+      <button id="mNext" class="ghost">Save and add another</button>
+      <button id="mCancel" class="ghost">Cancel</button>
+    </div>
+  </dialog>
+
+  <dialog id="proDialog" class="dlg">
+    <h2>MedPress Pro</h2>
+    <p class="muted">One-time purchase. Yours forever on this Microsoft account. The free version never limits how often you print.</p>
+    <ul class="pro-list">
+      <li><strong>Unlimited medicines</strong> <span class="muted">(Free: 6)</span></li>
+      <li><strong>Several people</strong> – for caregivers, couples and families</li>
+      <li><strong>Print up to 4 weeks at once</strong> <span class="muted">(Free: 1 week at a time)</span></li>
+    </ul>
+    <p id="proMsg" class="pro-msg" hidden></p>
+    <div class="row-btns">
+      <button id="buyBtn" class="primary">Unlock Pro</button>
+      <button id="restoreBtn" class="ghost">Restore purchase</button>
+      <button id="closePro" class="ghost">Not now</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+  <div id="printArea"></div>
+  <script src="app.js"></script>
+</body>
+</html>
