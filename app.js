@@ -99,7 +99,7 @@ const person = () => st.people.find((p) => p.id === st.cur) || st.people[0];
 function monday(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const wd = (x.getDay() + 6) % 7; x.setDate(x.getDate() - wd); return x; }
 function startDate() { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(st.start || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : monday(new Date()); }
 const fmtDay = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
-const fmtLong = (d) => { try { return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }); } catch (_) { return d.toDateString(); } };
+const fmtLong = (d) => { try { return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); } catch (_) { return d.toDateString(); } };
 const timesText = (m, sep) => SLOTS.filter((s) => m.times && m.times[s.k]).map((s) => s.short).join(sep || ', ');
 
 // ---------- text ----------
