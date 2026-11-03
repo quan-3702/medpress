@@ -1,4 +1,4 @@
-const CACHE = 'medpress-v5';
+const CACHE = 'medpress-v6';
 const ASSETS = ['./', 'index.html', 'help.html', 'privacy.html', 'style.css', 'app.js', 'manifest.json', 'icon-192.png', 'icon-512.png', 'icon-512-maskable.png'];
 
 self.addEventListener('install', (e) => {
