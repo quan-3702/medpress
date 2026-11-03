@@ -10,7 +10,21 @@ let proAvailable = false; // Pro limits apply only when the Store actually sells
 proAvailable = true; // owner's rule: Pro is never free – free limits apply everywhere (website, Store, offline) until Pro is bought
 let proSku = PRO_SKU;
 let isPro = false;
-try { isPro = localStorage.getItem('medpress-pro') === '1'; } catch (_) {}
+// the cached Pro flag is never trusted on the website (nothing can be bought there) and in the Store app only for 30 days
+// after the Store last confirmed the purchase (offline buyers stay Pro; after that the Store is asked again)
+const HAS_STORE = typeof window !== 'undefined' && 'getDigitalGoodsService' in window;
+const PRO_OK_MS = 30 * 864e5;
+function cachedPro() {
+  try {
+    if (!HAS_STORE || localStorage.getItem('medpress-pro') !== '1') return false;
+    const raw = localStorage.getItem('medpress-pro-ok');
+    if (raw == null) { localStorage.setItem('medpress-pro-ok', String(Date.now())); return true; } // a buyer from before this check counts as confirmed now, once
+    const ok = Number(raw);
+    return ok > 0 && ok <= Date.now() + 864e5 && Date.now() - ok < PRO_OK_MS;
+  } catch (_) { return false; }
+}
+function rememberPro(owned) { try { if (owned) { localStorage.setItem('medpress-pro', '1'); localStorage.setItem('medpress-pro-ok', String(Date.now())); } else { localStorage.removeItem('medpress-pro'); localStorage.removeItem('medpress-pro-ok'); } } catch (_) {} }
+isPro = cachedPro();
 const unlocked = () => isPro || !proAvailable;
 
 async function billing() {
@@ -19,7 +33,6 @@ async function billing() {
 }
 function setPro(v) {
   isPro = v;
-  try { localStorage.setItem('medpress-pro', v ? '1' : '0'); } catch (_) {}
   const b = $('proBtn');
   b.textContent = v ? '★ Pro' : '★ Get Pro';
   b.classList.toggle('is-pro', v);
@@ -43,7 +56,7 @@ async function checkPro() {
     if (details[0]) { proSku = details[0].itemId; if (!PRO_IDS.includes(proSku)) PRO_IDS.push(proSku); }
     const list = await svc.listPurchases();
     const owned = list.some((p) => PRO_IDS.includes(p.itemId));
-    if (owned || details.length) { setPro(owned); return owned; }
+    if (owned || details.length) { rememberPro(owned); setPro(owned); return owned; }
     setPro(isPro); // Store did not answer (offline): keep what we knew
     return isPro;
   } catch (_) { return isPro; }
@@ -239,7 +252,7 @@ function limitReason() {
   const idx = st.people.findIndex((p) => p.id === st.cur);
   if ((idx < 0 ? 0 : idx) >= FREE_PEOPLE) return 'Keeping charts for more than one person is part of Pro.';
   if (person().meds.length > FREE_MEDS) return `The free version holds up to ${FREE_MEDS} medicines. Pro has no limit.`;
-  if ((st.weeks | 0) > 1) return 'Printing several weeks at once is part of Pro. One week at a time is free.';
+  if (st.mode === 'week' && (st.weeks | 0) > 1) return 'Printing several weeks at once is part of Pro. One week at a time is free.';
   return '';
 }
 if (typeof module !== 'undefined') module.exports = { pages, weekPages, listPages, cardPages, limitReason, person, startDate, monday, SLOTS, getSt: () => st, setSt: (o) => { Object.assign(st, o); }, setProState: (a, b) => { proAvailable = a; isPro = b; } };
@@ -320,6 +333,7 @@ if (typeof document !== 'undefined') (function () {
   $('restoreBtn').onclick = async () => { proMessage((await checkPro()) ? 'Pro is unlocked. ★' : 'No purchase was found on this Microsoft account.'); };
   $('closePro').onclick = () => $('proDialog').close();
   window.addEventListener('resize', () => renderPage());
+  window.addEventListener('afterprint', () => { $('printArea').innerHTML = ''; });
   setPro(isPro);
   checkPro();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});

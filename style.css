@@ -144,3 +144,7 @@ textarea { min-height: 70px; resize: vertical; }
 #names { min-height: 120px; }
 #reason { min-height: 64px; }
 .logo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* feedback note */
+.feedback { color: var(--muted); font-size: 12px; line-height: 1.45; margin: 12px 0 0; overflow-wrap: anywhere; }
+.feedback a { color: inherit; text-decoration: underline; }
