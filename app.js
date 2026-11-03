@@ -7,6 +7,7 @@ const PRO_SKU = 'medpress_pro';
 const PRO_IDS = [PRO_SKU];
 let STORE_URL = 'https://apps.microsoft.com/detail/9N6RX8GF53K7';
 let proAvailable = false; // Pro limits apply only when the Store actually sells the add-on
+try { if ('getDigitalGoodsService' in window && localStorage.getItem('medpress-proavail') === '1') proAvailable = true; } catch (_) {} // keep Pro limits when offline
 let proSku = PRO_SKU;
 let isPro = false;
 try { isPro = localStorage.getItem('medpress-pro') === '1'; } catch (_) {}
@@ -26,17 +27,26 @@ function setPro(v) {
   document.body.classList.toggle('unlocked', unlocked());
   if (typeof renderAll === 'function') renderAll();
 }
+async function checkProAfterBuy() {
+  for (let i = 0; i < 6; i++) {
+    if (await checkPro()) return true;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  proMessage('Thank you! If Pro is not unlocked within a minute, click “Restore purchase”.');
+  return false;
+}
 async function checkPro() {
   const svc = await billing();
   if (!svc) return false;
   try {
     const details = await svc.getDetails(PRO_IDS).catch(() => []);
-    proAvailable = details.length > 0;
+    if (details.length) { proAvailable = true; try { localStorage.setItem('medpress-proavail', '1'); } catch (_) {} }
     if (details[0]) { proSku = details[0].itemId; if (!PRO_IDS.includes(proSku)) PRO_IDS.push(proSku); }
     const list = await svc.listPurchases();
     const owned = list.some((p) => PRO_IDS.includes(p.itemId));
-    setPro(owned);
-    return owned;
+    if (owned || details.length) { setPro(owned); return owned; }
+    setPro(isPro); // Store did not answer (offline): keep what we knew
+    return isPro;
   } catch (_) { return isPro; }
 }
 function proMessage(text) { const m = $('proMsg'); m.hidden = !text; m.textContent = text || ''; }
@@ -71,7 +81,7 @@ async function buyPro() {
     proMessage('Purchase could not be completed: ' + (e.message || e));
     return;
   }
-  if (await checkPro()) { proMessage('Thank you! Pro is unlocked. ★'); setTimeout(() => $('proDialog').close(), 1500); }
+  if (await checkProAfterBuy()) { proMessage('Thank you! Pro is unlocked. ★'); setTimeout(() => $('proDialog').close(), 1500); }
 }
 function needsPro(reason) {
   if (unlocked()) return false;
@@ -94,7 +104,9 @@ try { Object.assign(st, JSON.parse(localStorage.getItem('medpress') || '{}')); }
 if (!st.people.length) { const p = blankPerson(); st.people.push(p); }
 if (!st.people.some((p) => p.id === st.cur)) st.cur = st.people[0].id;
 let saveTimer;
-function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem('medpress', JSON.stringify(st)); } catch (_) { toast('Could not save'); } }, 250); }
+function saveNow() { clearTimeout(saveTimer); try { localStorage.setItem('medpress', JSON.stringify(st)); } catch (_) { toast('Could not save'); } }
+function save() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 250); }
+if (typeof window !== 'undefined') window.addEventListener('pagehide', saveNow); // closing the window right after a change must not lose it
 const person = () => st.people.find((p) => p.id === st.cur) || st.people[0];
 function monday(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const wd = (x.getDay() + 6) % 7; x.setDate(x.getDate() - wd); return x; }
 function startDate() { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(st.start || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : monday(new Date()); }
@@ -134,7 +146,7 @@ function weekPages(screen) {
       s += T(`Week of ${fmtLong(d0)}`, W - m, 15, 4.6 * L, ' fill="#333"', 'end');
       s += T('Tick each box when the medicine has been taken.', m, 22, 3.6 * L, ' fill="#555"');
       // day headers
-      for (let c = 0; c < 7; c++) { const d = new Date(d0); d.setDate(d.getDate() + c); const x = m + nameW + c * colW; s += `<rect x="${f2(x)}" y="${f2(top - 7)}" width="${f2(colW)}" height="7" fill="${c >= 5 ? '#e5e7eb' : '#f3f4f6'}" stroke="#9ca3af" stroke-width=".25"/>` + T(`${DAYS[c]} ${fmtDay(d)}`, x + colW / 2, top - 2, fit(`${DAYS[c]} ${fmtDay(d)}`, 3.8 * L, colW - 2, 600), ' font-weight="600"', 'middle'); }
+      for (let c = 0; c < 7; c++) { const d = new Date(d0); d.setDate(d.getDate() + c); const x = m + nameW + c * colW, wd = (d.getDay() + 6) % 7, dl = `${DAYS[wd]} ${fmtDay(d)}`; s += `<rect x="${f2(x)}" y="${f2(top - 7)}" width="${f2(colW)}" height="7" fill="${wd >= 5 ? '#e5e7eb' : '#f3f4f6'}" stroke="#9ca3af" stroke-width=".25"/>` + T(dl, x + colW / 2, top - 2, fit(dl, 3.8 * L, colW - 2, 600), ' font-weight="600"', 'middle'); } // the week may start on any day
       let y = top;
       for (const r of chunk) {
         if (r.empty) { s += T(screen ? 'Add your medicines on the left to fill in the chart.' : '', m + 2, y + rowH * 0.7, 4 * L, ' fill="#9ca3af"'); y += rowH; continue; }
@@ -178,7 +190,7 @@ function listPages(screen) {
     const rh = Math.max(1, ...cells.map((c) => c.length)) * lh + 3;
     if (y + rh > H - 52) { pages.push(svgPage(W, H, s)); header(false); }
     if (idx % 2) s += `<rect x="${m}" y="${f2(y)}" width="${f2(tw)}" height="${f2(rh)}" fill="#f3f4f6"/>`;
-    let x = m; cells.forEach((c, i) => { c.forEach((l, j) => { s += T(l, x + 2, y + 1.5 + fs + j * lh, fs, i === 0 ? ' font-weight="600"' : ''); }); x += cols[i].w * tw; });
+    let x = m; cells.forEach((c, i) => { c.forEach((l, j) => { s += T(l, x + 2, y + 1.5 + fs + j * lh, fit(l, fs, cols[i].w * tw - 4, i === 0 ? 600 : 400), i === 0 ? ' font-weight="600"' : ''); }); x += cols[i].w * tw; }); // a single long word shrinks instead of running into the next column
     s += `<line x1="${m}" y1="${f2(y + rh)}" x2="${f2(m + tw)}" y2="${f2(y + rh)}" stroke="#d1d5db" stroke-width=".3"/>`;
     y += rh;
   });
