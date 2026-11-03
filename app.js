@@ -7,7 +7,7 @@ const PRO_SKU = 'medpress_pro';
 const PRO_IDS = [PRO_SKU];
 let STORE_URL = 'https://apps.microsoft.com/detail/9N6RX8GF53K7';
 let proAvailable = false; // Pro limits apply only when the Store actually sells the add-on
-try { if ('getDigitalGoodsService' in window && localStorage.getItem('medpress-proavail') === '1') proAvailable = true; } catch (_) {} // keep Pro limits when offline
+proAvailable = true; // owner's rule: Pro is never free – free limits apply everywhere (website, Store, offline) until Pro is bought
 let proSku = PRO_SKU;
 let isPro = false;
 try { isPro = localStorage.getItem('medpress-pro') === '1'; } catch (_) {}
@@ -40,7 +40,6 @@ async function checkPro() {
   if (!svc) return false;
   try {
     const details = await svc.getDetails(PRO_IDS).catch(() => []);
-    if (details.length) { proAvailable = true; try { localStorage.setItem('medpress-proavail', '1'); } catch (_) {} }
     if (details[0]) { proSku = details[0].itemId; if (!PRO_IDS.includes(proSku)) PRO_IDS.push(proSku); }
     const list = await svc.listPurchases();
     const owned = list.some((p) => PRO_IDS.includes(p.itemId));
@@ -60,6 +59,7 @@ async function openPro(reason) {
     $('restoreBtn').hidden = false;
     try {
       const [d] = await svc.getDetails([proSku]);
+      if (!d) proMessage((reason ? reason + ' ' : '') + 'Pro is being added to the Microsoft Store and will be on sale very soon – please check again in a day or two.');
       const price = d && d.price ? new Intl.NumberFormat(undefined, { style: 'currency', currency: d.price.currency }).format(Number(d.price.value)) : '';
       $('buyBtn').textContent = price ? `Unlock Pro – ${price}` : 'Unlock Pro';
     } catch (_) { $('buyBtn').textContent = 'Unlock Pro'; }
@@ -235,7 +235,9 @@ function cardPages(screen) {
 function pages(screen) { return st.mode === 'list' ? listPages(screen) : st.mode === 'card' ? cardPages(screen) : weekPages(screen); }
 function limitReason() {
   if (unlocked()) return '';
-  if (st.people.length > FREE_PEOPLE) return 'Keeping charts for more than one person is part of Pro.';
+  // printing is per current person: the first free person prints, people kept beyond the free allowance need Pro
+  const idx = st.people.findIndex((p) => p.id === st.cur);
+  if ((idx < 0 ? 0 : idx) >= FREE_PEOPLE) return 'Keeping charts for more than one person is part of Pro.';
   if (person().meds.length > FREE_MEDS) return `The free version holds up to ${FREE_MEDS} medicines. Pro has no limit.`;
   if ((st.weeks | 0) > 1) return 'Printing several weeks at once is part of Pro. One week at a time is free.';
   return '';
